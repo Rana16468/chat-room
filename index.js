@@ -1,50 +1,46 @@
+// server.js
 const express = require("express");
-
-const { Server } = require("socket.io");
-const app = express();
-const port = 3011;
-
 const http = require("http");
+const cors = require("cors");
+const { Server } = require("socket.io");
+
+const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server);
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
+
+const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:5173", "http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 io.on("connection", (socket) => {
-  console.log("connected new user ");
-  socket.join("kitchen-room");
+  console.log("✅ User connected:", socket.id);
 
-  // first-room -1
-  let sizeOfKitchen = io.sockets.adapter.rooms.get("kitchen-room").size;
-  console.log("sizeOfKitchen: ", sizeOfKitchen);
-  io.sockets
-    .in("kitchen-room")
-    .emit("cooking", {
-      message: `Fride Rice Cooking In The Kitchen ${sizeOfKitchen}`,
-    });
+  socket.emit("message", { message: "Socket successfully connected" });
 
-  io.sockets
-    .in("kitchen-room")
-    .emit("boiling", { message: "Water  Boiling In The Kitchen" });
-
-  //second -room -2
-
-  socket.join("bed-room");
-  io.sockets
-    .in("bed-room")
-    .emit("sleep", { message: "I am Sleeping in the Bad Room" });
-  io.sockets
-    .in("bed-room")
-    .emit("rest", { message: "I am Sleeping in the Rest Room" });
+  socket.on("register", (data) => {
+    console.log(data);
+  });
 
   socket.on("disconnect", () => {
-    console.log("user disconnect");
+    console.log("❌ User disconnected:", socket.id);
   });
 });
 
 app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
+  res.send({ message: "Server is successfully running" });
 });
 
-server.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+server.listen(5000, () => {
+  console.log("🚀 Server running on port 5000");
 });
