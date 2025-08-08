@@ -23,14 +23,64 @@ const io = new Server(server, {
   },
 });
 
+// Store registered students in memory (in production, use a database)
+let registeredStudents = [];
+
 io.on("connection", (socket) => {
   console.log("✅ User connected:", socket.id);
 
   socket.emit("message", { message: "Socket successfully connected" });
 
   socket.on("register", (data) => {
-    console.log(data);
+    
+    if (!data.studentId || !data.name || !data.email) {
+      socket.emit("registration-error", {
+        message: "Missing required fields",
+        error: true
+      });
+      return;
+    }
+
+    const existingStudent = registeredStudents.find(s => s.studentId === data.studentId);
+    if (existingStudent) {
+      socket.emit("registration-error", {
+        message: "Student ID already exists",
+        error: true
+      });
+      return;
+    }
+
+    const newStudent = {
+      ...data,
+      registeredAt: new Date().toISOString(),
+      socketId: socket.id
+    };
+    
+    registeredStudents.push(newStudent);
+    
+    console.log("✅ Student registered successfully:", newStudent);
+    
+
+    socket.emit("registration-success", {
+      message: "Student registered successfully",
+      student: newStudent,
+      totalStudents: registeredStudents.length
+    });
+
+    // Broadcast to all clients that a new student was registered
+    socket.broadcast.emit("new-student-registered", {
+      student: newStudent,
+      totalStudents: registeredStudents.length
+    });
   });
+
+  // Handle getting all students
+  // socket.on("get-students", () => {
+  //   socket.emit("students-list", {
+  //     students: registeredStudents,
+  //     total: registeredStudents.length
+  //   });
+  // });
 
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
@@ -38,7 +88,18 @@ io.on("connection", (socket) => {
 });
 
 app.get("/", (req, res) => {
-  res.send({ message: "Server is successfully running" });
+  res.send({ 
+    message: "Server is successfully running",
+    totalRegisteredStudents: registeredStudents.length
+  });
+});
+
+// REST API endpoint to get students
+app.get("/api/students", (req, res) => {
+  res.json({
+    students: registeredStudents,
+    total: registeredStudents.length
+  });
 });
 
 server.listen(5000, () => {
